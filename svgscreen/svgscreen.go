@@ -65,7 +65,6 @@ func Render(w io.Writer, s Screen) error {
 	})
 
 	// remove unused background colors
-	backgroundColorsUsed := map[string]string{}
 	for _, l := range s.Lines {
 		for i, c := range l.Chars {
 			if c.Invert {
@@ -78,18 +77,8 @@ func Render(w io.Writer, s Screen) error {
 				}
 				l.Chars[i] = c
 			}
-
-			if c.Background == "" {
-				continue
-			}
-			if strings.HasPrefix(c.Background, "#") {
-				backgroundColorsUsed[c.Background] = c.Background
-			} else {
-				backgroundColorsUsed[c.Background] = s.BackgroundColors[c.Background]
-			}
 		}
 	}
-	s.BackgroundColors = backgroundColorsUsed
 
 	t, err := t.Parse(templateSVG)
 	if err != nil {
