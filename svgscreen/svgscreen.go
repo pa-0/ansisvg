@@ -4,10 +4,8 @@ package svgscreen
 import (
 	_ "embed"
 	"encoding/base64"
-	"fmt"
 	"html/template"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/wader/ansisvg/color"
@@ -64,8 +62,16 @@ type Screen struct {
 	TextElements     []TextElement
 }
 
+// Resolve color from string (either # prefixed hex value or index into lookup table)
+func ResolveColor(c string, lookup map[string]string) string {
+	if strings.HasPrefix(c, "#") {
+		return c
+	}
+	return lookup[c]
+}
+
 // Convert a line into a <text> element
-// fc gives (color, content) of a char
+// fc gives (foregroundcolor, content) of a char
 func LineToTextElement(s Screen, l Line, fc func(Char) (string, string)) TextElement {
 	result := TextElement{
 		Y: l.Y * s.CharacterBoxSize.Height,
@@ -122,20 +128,14 @@ func Render(w io.Writer, s Screen) error {
 		}
 		s.TextElements = append(s.TextElements, LineToTextElement(s, l, func(c Char) (string, string) {
 			if c.Background == "" {
-				return "", "&nbsp;"
+				return "", " "
 			} else {
-				return c.Background, "&#x2588;"
+				return ResolveColor(c.Background, s.BackgroundColors), "█"
 			}
 		}))
 		s.TextElements = append(s.TextElements, LineToTextElement(s, l, func(c Char) (string, string) {
-			return c.Foreground, c.Char
+			return ResolveColor(c.Foreground, s.ForegroundColors), c.Char
 		}))
-	}
-	for _, t := range s.TextElements {
-		fmt.Fprintf(os.Stderr, "text at %d\n", t.Y)
-		for _, s := range t.TextSpans {
-			fmt.Fprintf(os.Stderr, "tspan col:%s cont: %s\n", s.ForegroundColor, s.Content)
-		}
 	}
 
 	t, err := t.Parse(templateSVG)
