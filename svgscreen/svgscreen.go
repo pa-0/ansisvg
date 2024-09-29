@@ -260,12 +260,12 @@ func (s *Screen) setupBgRects() {
 				Color:  currentRect.color,
 			})
 		}
-		wchar := 0 // 定义一个计数器，用于计算全角字符的数量
+		wchar := 0 // Defines a counter for number of double-width characters
 		for x, c := range l.Chars {
-			charlen := 1 // 默认字符长度为1
+			charlen := 1 // The default character length is 1
 			if isWideChar([]rune(c.Char)[0]) {
-				charlen = 2 // 如果是全角字符，则长度为2
-				wchar += 1 // 如果是全角字符，增加计数器
+				charlen = 2 // Length of full-width character is 2
+				wchar += 1 // If iterated character is full-width, counter increases
 			}
 
 			if c.Background == "" || c.Background == s.Background.Default {
@@ -280,14 +280,14 @@ func (s *Screen) setupBgRects() {
 				continue
 			}
 
-			currentRect.w += charlen // 更新当前矩形的宽度
+			currentRect.w += charlen // Updates the width of the current rectangle
 
 		}
 		appendRect()
 	}
 }
 
-// 判断字符是否占用两个字符宽度，包括所有全角字符
+// Determine whether a character occupies two character widths, including all double-width characters
 func isWideChar(r rune) bool {
 	eaWidth := width.LookupRune(r).Kind()
 	return eaWidth == width.EastAsianWide || eaWidth == width.EastAsianFullwidth
