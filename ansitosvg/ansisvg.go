@@ -7,28 +7,29 @@ import (
 	"github.com/wader/ansisvg/ansidecoder"
 	"github.com/wader/ansisvg/colorscheme/schemes"
 	"github.com/wader/ansisvg/svgscreen"
+	"github.com/wader/ansisvg/svgscreen/xydim"
 )
 
-type BoxSize struct {
-	Width  int
-	Height int
-}
-
 type Options struct {
-	FontName         string
-	FontSize         int
-	TerminalWidth    int
-	CharacterBoxSize BoxSize
-	ColorScheme      string
-	Transparent      bool
+	FontName      string
+	FontEmbedded  []byte
+	FontRef       string
+	FontSize      int
+	TerminalWidth int
+	CharBoxSize   xydim.XyDimInt
+	MarginSize    xydim.XyDimFloat
+	ColorScheme   string
+	Transparent   bool
+	GridMode      bool
 }
 
 var DefaultOptions = Options{
-	FontName:         "Courier",
-	FontSize:         14,
-	CharacterBoxSize: BoxSize{Width: 8, Height: 16},
-	ColorScheme:      "Builtin Dark",
-	Transparent:      false,
+	FontName:    "Courier",
+	FontSize:    14,
+	CharBoxSize: xydim.XyDimInt{X: 0, Y: 0},
+	MarginSize:  xydim.XyDimFloat{X: 0, Y: 0},
+	ColorScheme: "Builtin Dark",
+	Transparent: false,
 }
 
 // Convert reads ANSI input from r and writes SVG to w
@@ -67,13 +68,15 @@ func Convert(r io.Reader, w io.Writer, opts Options) error {
 
 		for i := 0; i < n; i++ {
 			line.Chars = append(line.Chars, svgscreen.Char{
-				Char:       string([]rune{r}),
-				X:          ad.X + i,
-				Foreground: ad.Foreground.String(),
-				Background: ad.Background.String(),
-				Underline:  ad.Underline,
-				Intensity:  ad.Intensity,
-				Invert:     ad.Invert,
+				Char:          string([]rune{r}),
+				X:             ad.X + i,
+				Foreground:    ad.Foreground.String(),
+				Background:    ad.Background.String(),
+				Underline:     ad.Underline,
+				Intensity:     ad.Intensity,
+				Invert:        ad.Invert,
+				Italic:        ad.Italic,
+				Strikethrough: ad.Strikethrough,
 			})
 		}
 	}
@@ -89,59 +92,53 @@ func Convert(r io.Reader, w io.Writer, opts Options) error {
 		return err
 	}
 
+	fontName := opts.FontName
+	if len(opts.FontEmbedded) > 0 {
+		fontName = "Embedded"
+	} else if opts.FontRef != "" {
+		fontName = "ExternalRef"
+	}
+
 	c := colorScheme
-	return svgscreen.Render(
-		w,
-		svgscreen.Screen{
-			Transparent:     opts.Transparent,
-			ForegroundColor: c.Foreground,
-			ForegroundColors: map[string]string{
-				"0":  c.ANSIBlack,
-				"1":  c.ANSIRed,
-				"2":  c.ANSIGreen,
-				"3":  c.ANSIYellow,
-				"4":  c.ANSIBlue,
-				"5":  c.ANSIMagenta,
-				"6":  c.ANSICyan,
-				"7":  c.ANSIWhite,
-				"8":  c.ANSIBrightBlack,
-				"9":  c.ANSIBrightRed,
-				"10": c.ANSIBrightGreen,
-				"11": c.ANSIBrightYellow,
-				"12": c.ANSIBrightBlue,
-				"13": c.ANSIBrightMagenta,
-				"14": c.ANSIBrightCyan,
-				"15": c.ANSIBrightWhite,
-			},
-			BackgroundColor: c.Background,
-			BackgroundColors: map[string]string{
-				"0":  c.ANSIBlack,
-				"1":  c.ANSIRed,
-				"2":  c.ANSIGreen,
-				"3":  c.ANSIYellow,
-				"4":  c.ANSIBlue,
-				"5":  c.ANSIMagenta,
-				"6":  c.ANSICyan,
-				"7":  c.ANSIWhite,
-				"8":  c.ANSIBrightBlack,
-				"9":  c.ANSIBrightRed,
-				"10": c.ANSIBrightYellow,
-				"11": c.ANSIBrightYellow,
-				"12": c.ANSIBrightBlue,
-				"13": c.ANSIBrightMagenta,
-				"14": c.ANSIBrightCyan,
-				"15": c.ANSIBrightWhite,
-			},
-			FontName: opts.FontName,
-			FontSize: opts.FontSize,
-			CharacterBoxSize: svgscreen.BoxSize{
-				Width:  opts.CharacterBoxSize.Width,
-				Height: opts.CharacterBoxSize.Height,
-			},
-			TerminalWidth: terminalWidth,
-			Columns:       ad.MaxX + 1,
-			NrLines:       ad.MaxY + 1,
-			Lines:         lines,
+	s := svgscreen.Screen{
+		Transparent: opts.Transparent,
+		Foreground: svgscreen.ColorMap{
+			Default: c.Foreground,
 		},
-	)
+		Background: svgscreen.ColorMap{
+			Default: c.Background,
+		},
+		ANSIColors: [16]string{
+			c.ANSIBlack,
+			c.ANSIRed,
+			c.ANSIGreen,
+			c.ANSIYellow,
+			c.ANSIBlue,
+			c.ANSIMagenta,
+			c.ANSICyan,
+			c.ANSIWhite,
+			c.ANSIBrightBlack,
+			c.ANSIBrightRed,
+			c.ANSIBrightGreen,
+			c.ANSIBrightYellow,
+			c.ANSIBrightBlue,
+			c.ANSIBrightMagenta,
+			c.ANSIBrightCyan,
+			c.ANSIBrightWhite,
+		},
+		Dom: svgscreen.SvgDom{
+			FontName:     fontName,
+			FontEmbedded: opts.FontEmbedded,
+			FontRef:      opts.FontRef,
+			FontSize:     opts.FontSize,
+		},
+		CharacterBoxSize: opts.CharBoxSize,
+		MarginSize:       opts.MarginSize,
+		TerminalWidth:    terminalWidth,
+		Columns:          ad.MaxX + 1,
+		NrLines:          ad.MaxY + 1,
+		Lines:            lines,
+		GridMode:         opts.GridMode,
+	}
+	return s.Render(w)
 }
